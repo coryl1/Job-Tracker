@@ -1,7 +1,9 @@
 import { useState } from "react";
 import type { Prospect } from "@shared/schema";
+import type { PhaseHistoryEntry } from "@shared/schema";
+import { STATUSES } from "@shared/schema";
 import { Button } from "@/components/ui/button";
-import { ExternalLink, Trash2, Pencil, Flame, ThumbsUp, Minus, DollarSign } from "lucide-react";
+import { ExternalLink, Trash2, Pencil, Flame, ThumbsUp, Minus, DollarSign, Clock } from "lucide-react";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -12,6 +14,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { EditProspectForm } from "./edit-prospect-form";
+
+type ProspectWithHistory = Prospect & { phaseHistory?: PhaseHistoryEntry[] };
 
 function InterestIndicator({ level }: { level: string }) {
   switch (level) {
@@ -41,7 +45,33 @@ function InterestIndicator({ level }: { level: string }) {
   }
 }
 
-export function ProspectCard({ prospect }: { prospect: Prospect }) {
+function PhaseHistoryDisplay({ history }: { history: PhaseHistoryEntry[] }) {
+  if (!history || history.length === 0) return null;
+
+  const statusOrder = STATUSES.reduce((acc, s, i) => { acc[s] = i; return acc; }, {} as Record<string, number>);
+  const sorted = [...history].sort((a, b) => (statusOrder[a.phase] ?? 99) - (statusOrder[b.phase] ?? 99));
+
+  return (
+    <div className="space-y-0.5 pt-1 border-t border-border/30" data-testid="phase-history">
+      <div className="flex items-center gap-1 text-[10px] text-muted-foreground font-medium mb-0.5">
+        <Clock className="w-2.5 h-2.5" />
+        Phase History
+      </div>
+      {sorted.map((entry) => (
+        <div
+          key={entry.id}
+          className="flex items-center justify-between text-[10px]"
+          data-testid={`phase-entry-${entry.phase.replace(/\s+/g, "-").toLowerCase()}`}
+        >
+          <span className="text-muted-foreground">{entry.phase}</span>
+          <span className="text-foreground/70 tabular-nums">{entry.date}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+export function ProspectCard({ prospect }: { prospect: ProspectWithHistory }) {
   const { toast } = useToast();
   const [editOpen, setEditOpen] = useState(false);
 
@@ -135,6 +165,8 @@ export function ProspectCard({ prospect }: { prospect: Prospect }) {
             {prospect.notes}
           </p>
         )}
+
+        <PhaseHistoryDisplay history={prospect.phaseHistory || []} />
       </div>
 
       <Dialog open={editOpen} onOpenChange={setEditOpen}>

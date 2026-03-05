@@ -1,7 +1,9 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
-import type { Prospect } from "@shared/schema";
+import type { Prospect, PhaseHistoryEntry } from "@shared/schema";
 import { STATUSES, INTEREST_LEVELS } from "@shared/schema";
+
+type ProspectWithHistory = Prospect & { phaseHistory?: PhaseHistoryEntry[] };
 import { ProspectCard } from "@/components/prospect-card";
 import { AddProspectForm } from "@/components/add-prospect-form";
 import { Briefcase, Plus, Filter } from "lucide-react";
@@ -43,7 +45,7 @@ function KanbanColumn({
   isLoading,
 }: {
   status: string;
-  prospects: Prospect[];
+  prospects: ProspectWithHistory[];
   isLoading: boolean;
 }) {
   const [interestFilter, setInterestFilter] = useState<InterestFilter>("All");
@@ -117,7 +119,7 @@ function KanbanColumn({
 export default function Home() {
   const [dialogOpen, setDialogOpen] = useState(false);
 
-  const { data: prospects, isLoading } = useQuery<Prospect[]>({
+  const { data: prospects, isLoading } = useQuery<ProspectWithHistory[]>({
     queryKey: ["/api/prospects"],
   });
 
@@ -126,7 +128,7 @@ export default function Home() {
       acc[status] = (prospects ?? []).filter((p) => p.status === status);
       return acc;
     },
-    {} as Record<string, Prospect[]>,
+    {} as Record<string, ProspectWithHistory[]>,
   );
 
   const totalCount = prospects?.length ?? 0;

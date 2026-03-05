@@ -1,4 +1,4 @@
-import { pgTable, serial, text, timestamp, integer } from "drizzle-orm/pg-core";
+import { pgTable, serial, text, timestamp, integer, date } from "drizzle-orm/pg-core";
 import { createInsertSchema } from "drizzle-zod";
 import { z } from "zod";
 
@@ -26,6 +26,13 @@ export const prospects = pgTable("prospects", {
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
 });
 
+export const phaseHistory = pgTable("phase_history", {
+  id: serial("id").primaryKey(),
+  prospectId: integer("prospect_id").notNull().references(() => prospects.id, { onDelete: "cascade" }),
+  phase: text("phase").notNull(),
+  date: text("date").notNull(),
+});
+
 export const insertProspectSchema = createInsertSchema(prospects).omit({
   id: true,
   createdAt: true,
@@ -39,5 +46,11 @@ export const insertProspectSchema = createInsertSchema(prospects).omit({
   salary: z.number().int("Salary must be a whole number").min(0, "Salary cannot be negative").optional().nullable(),
 });
 
+export const insertPhaseHistorySchema = createInsertSchema(phaseHistory).omit({
+  id: true,
+});
+
 export type InsertProspect = z.infer<typeof insertProspectSchema>;
 export type Prospect = typeof prospects.$inferSelect;
+export type PhaseHistoryEntry = typeof phaseHistory.$inferSelect;
+export type InsertPhaseHistory = z.infer<typeof insertPhaseHistorySchema>;

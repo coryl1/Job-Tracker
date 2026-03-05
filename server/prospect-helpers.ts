@@ -54,3 +54,20 @@ export function validateProspect(data: Record<string, unknown>): { valid: boolea
 export function isTerminalStatus(status: string): boolean {
   return status === "Rejected" || status === "Withdrawn" || status === "Offer";
 }
+
+export type PhaseHistoryMap = Record<string, string>;
+
+export function buildPhaseHistory(existingHistory: PhaseHistoryMap, newPhase: string, date: string): PhaseHistoryMap {
+  if (existingHistory[newPhase]) {
+    return existingHistory;
+  }
+  return { ...existingHistory, [newPhase]: date };
+}
+
+export function shouldRecordPhase(existingHistory: PhaseHistoryMap, phase: string): boolean {
+  return !(phase in existingHistory);
+}
+
+export function validatePhaseDate(date: string): boolean {
+  return /^\d{4}-\d{2}-\d{2}$/.test(date);
+}
