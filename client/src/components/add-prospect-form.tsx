@@ -43,7 +43,9 @@ export function AddProspectForm({ onSuccess }: { onSuccess?: () => void }) {
 
   const mutation = useMutation({
     mutationFn: async (data: InsertProspect) => {
-      await apiRequest("POST", "/api/prospects", data);
+      const now = new Date();
+      const localDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      await apiRequest("POST", "/api/prospects", { ...data, initialPhaseDate: localDate });
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prospects"] });

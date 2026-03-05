@@ -1,7 +1,8 @@
+import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { insertProspectSchema, STATUSES, INTEREST_LEVELS } from "@shared/schema";
-import type { InsertProspect, Prospect } from "@shared/schema";
+import type { InsertProspect, Prospect, PhaseHistoryEntry } from "@shared/schema";
 import { useMutation } from "@tanstack/react-query";
 import { apiRequest, queryClient } from "@/lib/queryClient";
 import { useToast } from "@/hooks/use-toast";
@@ -23,15 +24,18 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Loader2 } from "lucide-react";
+import { Loader2, Clock } from "lucide-react";
+
+type ProspectWithHistory = Prospect & { phaseHistory?: PhaseHistoryEntry[] };
 
 interface EditProspectFormProps {
-  prospect: Prospect;
+  prospect: ProspectWithHistory;
   onSuccess?: () => void;
 }
 
 export function EditProspectForm({ prospect, onSuccess }: EditProspectFormProps) {
   const { toast } = useToast();
+  const phaseEntries = prospect.phaseHistory || [];
 
   const form = useForm<InsertProspect>({
     resolver: zodResolver(insertProspectSchema),
@@ -48,7 +52,12 @@ export function EditProspectForm({ prospect, onSuccess }: EditProspectFormProps)
 
   const mutation = useMutation({
     mutationFn: async (data: InsertProspect) => {
-      await apiRequest("PATCH", `/api/prospects/${prospect.id}`, data);
+      const payload: Record<string, unknown> = { ...data };
+      if (data.status !== prospect.status) {
+        const now = new Date();
+        payload.phaseDate = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+      }
+      await apiRequest("PATCH", `/api/prospects/${prospect.id}`, payload);
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ["/api/prospects"] });
@@ -57,6 +66,19 @@ export function EditProspectForm({ prospect, onSuccess }: EditProspectFormProps)
     },
     onError: () => {
       toast({ title: "Failed to update prospect", variant: "destructive" });
+    },
+  });
+
+  const dateMutation = useMutation({
+    mutationFn: async ({ phase, date }: { phase: string; date: string }) => {
+      await apiRequest("PUT", `/api/prospects/${prospect.id}/phase-history`, { phase, date });
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/prospects"] });
+      toast({ title: "Phase date updated" });
+    },
+    onError: () => {
+      toast({ title: "Failed to update phase date", variant: "destructive" });
     },
   });
 
@@ -213,6 +235,31 @@ export function EditProspectForm({ prospect, onSuccess }: EditProspectFormProps)
           )}
         />
 
+        {phaseEntries.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center gap-1.5 text-sm font-medium">
+              <Clock className="w-3.5 h-3.5" />
+              Phase History
+            </div>
+            <div className="space-y-1.5">
+              {phaseEntries
+                .sort((a, b) => {
+                  const ai = STATUSES.indexOf(a.phase as typeof STATUSES[number]);
+                  const bi = STATUSES.indexOf(b.phase as typeof STATUSES[number]);
+                  return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi);
+                })
+                .map((entry) => (
+                  <PhaseHistoryDateEditor
+                    key={entry.id}
+                    entry={entry}
+                    onSave={(date) => dateMutation.mutate({ phase: entry.phase, date })}
+                    isSaving={dateMutation.isPending}
+                  />
+                ))}
+            </div>
+          </div>
+        )}
+
         <Button type="submit" className="w-full" disabled={mutation.isPending} data-testid="button-save-prospect">
           {mutation.isPending ? (
             <>
@@ -225,5 +272,47 @@ export function EditProspectForm({ prospect, onSuccess }: EditProspectFormProps)
         </Button>
       </form>
     </Form>
+  );
+}
+
+function PhaseHistoryDateEditor({
+  entry,
+  onSave,
+  isSaving,
+}: {
+  entry: PhaseHistoryEntry;
+  onSave: (date: string) => void;
+  isSaving: boolean;
+}) {
+  const [localDate, setLocalDate] = useState(entry.date);
+  const hasChanged = localDate !== entry.date;
+
+  return (
+    <div
+      className="flex items-center gap-2"
+      data-testid={`phase-edit-${entry.phase.replace(/\s+/g, "-").toLowerCase()}`}
+    >
+      <span className="text-xs text-muted-foreground w-24 shrink-0 truncate">{entry.phase}</span>
+      <Input
+        type="date"
+        value={localDate}
+        onChange={(e) => setLocalDate(e.target.value)}
+        className="h-7 text-xs flex-1"
+        data-testid={`input-phase-date-${entry.phase.replace(/\s+/g, "-").toLowerCase()}`}
+      />
+      {hasChanged && (
+        <Button
+          type="button"
+          size="sm"
+          variant="outline"
+          className="h-7 text-xs px-2"
+          onClick={() => onSave(localDate)}
+          disabled={isSaving}
+          data-testid={`button-save-phase-date-${entry.phase.replace(/\s+/g, "-").toLowerCase()}`}
+        >
+          Save
+        </Button>
+      )}
+    </div>
   );
 }
