@@ -2,6 +2,8 @@
 
 A Kanban-style job search tracker. Organize your job prospects across pipeline stages, from Bookmarked through Offer (or Rejected/Withdrawn). Built with React, Express, and PostgreSQL.
 
+# Edits by coryl1
+
 ---
 
 ## File Structure
